@@ -151,7 +151,7 @@ void printMatrix(Matrix matrix) {
   int numCols = matrix[0].size();
   for (int i = 0; i < numRows; i++) {
     for (int j = 0; j < numCols; j++) {
-      std::cout << matrix[i][j] << " ";
+      std::cout << matrix[i][j];
     } std::cout << std::endl;
   }
 }
@@ -230,32 +230,30 @@ class Solver {
     }
     
 
-    void printNodes() {
-      int k = 0;
+    Matrix showNodes() {
+      Matrix mazeWithNodes = mazeToNums();
       Solver servant;
       CoordMatrix nodes = servant.getNodeMatrix();
       int numRows = nodes.size();
       bool isNode;
-      char current;
-      restart();
-      while (std::getline(maze, line)) {
-        for (int i = 0; i < line.size(); i++) {
+      int current;
+
+      for (int k = 0; k < mazeWithNodes.size(); k++) {
+        for (int i = 0; i < mazeWithNodes[0].size(); i++) {
           isNode = false;
-          current = line[i];
+          current = mazeWithNodes[k][i];
           for (int pairIndex = 0; pairIndex < numRows; pairIndex++) {
             if (nodes[pairIndex][0] == i && nodes[pairIndex][1] == k) {
-              std::cout << "*";
+              mazeWithNodes[k][i] = 9;
               isNode = true;
             } 
           }
-
           if (!isNode) {
-            std::cout << current;
+            mazeWithNodes[k][i] = current;
           }
         }
-        std::cout << std::endl;
-        k++;
-      } 
+      }
+      return mazeWithNodes;
     }
 
   
@@ -263,47 +261,52 @@ class Solver {
       AdjList adjNodes;
       Solver servant;
       CoordMatrix nodes = servant.getNodeMatrix();
-      Matrix mazeMatrix = mazeToNums();
+      Matrix mazeWithNodes = servant.showNodes();
       int numRows = nodes.size();
       bool hitObstacle = false;
       bool rightNeighbour = false;
       bool leftNeighbour = false;
       bool upperNeighbour = false;
       bool lowerNeighbour = false;
-
+      int jump = 1;
 
       for (int y = 0; y < totalRows; y++) {
         for (int x = 0; x < totalCols; x++) {
           for (int pairIndex = 0; pairIndex < numRows; pairIndex++) {
             if (nodes[pairIndex][0] == x && nodes[pairIndex][1] == y) { 
-              while (!rightNeighbour) { 
-                while (!hitObstacle) {
-                  if () {
-
-                  }  
+              while (!rightNeighbour && !hitObstacle) { 
+                if (mazeWithNodes[y][x + jump] == 9) { 
+                  rightNeighbour = true;
+                  //attach the nodes together
+                  //=============================
+                  jump = 1;
+                } else if (mazeWithNodes[y][x + jump] == 1 || mazeWithNodes[y][x + jump] == 2 || mazeWithNodes[y][x + jump] == 3) {
+                  hitObstacle = true;
+                  jump = 1;
+                } else {
+                  jump++;
                 }
-                rightNeighbour = true;
               }
 
-              while (!leftNeighbour) { 
-                while (!hitObstacle) {
-                  
-                }
-                leftNeighbour = true;
+              while (!leftNeighbour && !hitObstacle) { 
+                if (true) {
+
+                  leftNeighbour = true;
+                }  
               }
 
-              while (!upperNeighbour) { 
-                while (!hitObstacle) {
-                  
+              while (!upperNeighbour && !hitObstacle) { 
+                if (true) {
+
+                  upperNeighbour = true;  
                 }
-                upperNeighbour = true;
               }
 
-              while (!lowerNeighbour) { 
-                while (!hitObstacle) {
-                  
-                }
-                lowerNeighbour = true;
+              while (!lowerNeighbour && !hitObstacle) { 
+                if (true) {
+
+                  lowerNeighbour = true;
+                }                   
               }
             } 
           }
@@ -322,9 +325,9 @@ int main() {
   //=============================================Block of code===========================
   printMaze();                                //displays maze, then nodes, and nodecount.
   Solver slave;
-  slave.printNodes();
   CoordMatrix outp = slave.getNodeMatrix();
   std::cout << std::endl << "Node count: " << slave.getNodeNum() << std::endl;
+  printMatrix(slave.showNodes());
   //=====================================================================================
   
   
