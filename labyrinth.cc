@@ -5,6 +5,8 @@
 #include <vector>
 #include <array>
 #include <unordered_map>
+#include <boost/functional/hash.hpp>
+
 
 //=============================================================FUNCTIONS
 
@@ -156,15 +158,19 @@ void printMatrix(Matrix matrix) {
   }
 }
 
+int manhattanDistance(int x1, int y1, int x2, int y2) {
+    return abs(x2 - x1) + abs(y2 - y1);
+}
 
 typedef std::vector<int> Coord;
 typedef std::vector<std::vector<int>> CoordMatrix;
-typedef std::unordered_map<int, std::vector<int>> AdjList;
+typedef std::unordered_map<std::pair<int, int>, std::vector<std::pair<std::pair<int, int>, int>>, boost::hash<std::pair<int, int>>> AdjList;
 
 
 class Solver {
   private:
     int totalNodes = 0;
+    int connections = 0;
     bool nodesCounted = false;
   public:
     Solver() {
@@ -228,7 +234,12 @@ class Solver {
         return 0;
       }
     }
-    
+      
+
+    int getConnections() {
+      return connections;
+    }
+
 
     Matrix showNodes() {
       Matrix mazeWithNodes = mazeToNums();
@@ -269,45 +280,52 @@ class Solver {
       bool upperNeighbour = false;
       bool lowerNeighbour = false;
       int jump = 1;
+      int neighbourX, neighbourY, weight;
+      connections = 0;
+
 
       for (int y = 0; y < totalRows; y++) {
         for (int x = 0; x < totalCols; x++) {
           for (int pairIndex = 0; pairIndex < numRows; pairIndex++) {
-            if (nodes[pairIndex][0] == x && nodes[pairIndex][1] == y) { 
-              while (!rightNeighbour && !hitObstacle) { 
-                if (mazeWithNodes[y][x + jump] == 9) { 
+            if (nodes[pairIndex][0] == x && nodes[pairIndex][1] == y) {
+              
+              jump = 1;
+              hitObstacle = false;
+              rightNeighbour = false;
+              while (!rightNeighbour && !hitObstacle && x + jump >= 0 && x + jump < totalCols) { 
+                neighbourX = x + jump;
+                if (mazeWithNodes[y][neighbourX] == 9) { 
                   rightNeighbour = true;
-                  //attach the nodes together
-                  //=============================
-                  jump = 1;
+                  connections++;
+                  weight = manhattanDistance(x, y, neighbourX, neighbourY);
+                  adjNodes[{x, y}].push_back({{neighbourX, y}, weight});
+                  adjNodes[{neighbourX, y}].push_back({{x, y}, weight});  
+
                 } else if (mazeWithNodes[y][x + jump] == 1 || mazeWithNodes[y][x + jump] == 2 || mazeWithNodes[y][x + jump] == 3) {
                   hitObstacle = true;
-                  jump = 1;
                 } else {
                   jump++;
                 }
               }
-
-              while (!leftNeighbour && !hitObstacle) { 
-                if (true) {
-
-                  leftNeighbour = true;
-                }  
-              }
-
-              while (!upperNeighbour && !hitObstacle) { 
-                if (true) {
-
-                  upperNeighbour = true;  
-                }
-              }
-
-              while (!lowerNeighbour && !hitObstacle) { 
-                if (true) {
-
+              
+              jump = 1;
+              hitObstacle = false;
+              lowerNeighbour = false;
+              while (!lowerNeighbour && !hitObstacle && y + jump >= 0 && y + jump < totalRows) { 
+                neighbourY = y + jump;
+                if (mazeWithNodes[neighbourY][x] == 9) { 
                   lowerNeighbour = true;
-                }                   
-              }
+                  connections++;
+                  weight = manhattanDistance(x, y, neighbourX, neighbourY);
+                  adjNodes[{x, y}].push_back({{x, neighbourY}, weight});
+                  adjNodes[{x, neighbourY}].push_back({{x, y}, weight});
+                  
+                } else if (mazeWithNodes[y + jump][x] == 1 || mazeWithNodes[y + jump][x] == 2 || mazeWithNodes[y + jump][x] == 3) {
+                  hitObstacle = true;
+                } else {
+                  jump++;
+                }
+              }                   
             } 
           }
         }
@@ -319,21 +337,83 @@ class Solver {
 
 
 
+//function to be remove later:
+
+
+void printNodeWeights(const AdjList& adjList) {
+
+    for (const auto& nodeEntry : adjList) {
+        const std::pair<int, int>& node = nodeEntry.first;
+        const std::vector<std::pair<std::pair<int, int>, int>>& neighbors = nodeEntry.second;
+        
+        std::cout << "Node (" << node.second + 1 << ", " << node.first + 1 << "):\n";
+
+        for (const auto& neighbor : neighbors) {
+            const std::pair<int, int>& neighborNode = neighbor.first; 
+            float weight = neighbor.second;  
+
+            std::cout << "  Neighbor (" << neighborNode.second + 1 << ", " << neighborNode.first + 1
+                      << ") with weight: " << weight << "\n";
+        }
+
+        std::cout << "\n"; 
+    }
+}
+
+
 //=============================================================MAIN
 int main() {
-  setup("/home/hexogen/mazes/", 1); 
+  setup("/home/hexogen/mazes/", 4); 
   //=============================================Block of code===========================
   printMaze();                                //displays maze, then nodes, and nodecount.
   Solver slave;
   CoordMatrix outp = slave.getNodeMatrix();
   std::cout << std::endl << "Node count: " << slave.getNodeNum() << std::endl;
   printMatrix(slave.showNodes());
+  std::cout << std::endl;
+  AdjList temp = slave.getAdjNodes();
+  std::cout << slave.getConnections() << std::endl << std::endl;
+  
+  std::cout << std::endl;
   //=====================================================================================
   
   
 
   return 0;
-
+//NOTE: add out of bound checks to everything;
+//NOTE: try to improve and reach O(1) lookups;
+              /*     //===========================================================================Commented due to double-counting==
+              jump = 1;                                                                     //of the node connections.
+              hitObstacle = false;                                                          //belongs to the getAdjNodes() method
+              leftNeighbour  = false; 
+              while (!leftNeighbour && !hitObstacle && x - jump >= 0 && x - jump < totalCols) { 
+                if (mazeWithNodes[y][x - jump] == 9) { 
+                  leftNeighbour = true;
+                  connections++;
+                  //attach the nodes together
+                  //=============================
+                } else if (mazeWithNodes[y][x - jump] == 1 || mazeWithNodes[y][x - jump] == 2 || mazeWithNodes[y][x - jump] == 3) {
+                  hitObstacle = true;
+                } else {
+                  jump++;
+                }
+              }
+              
+              jump = 1;
+              hitObstacle = false;
+              upperNeighbour = false;
+              while (!upperNeighbour && !hitObstacle && y - jump >= 0 && y - jump < totalRows) { 
+                if (mazeWithNodes[y - jump][x] == 9) { 
+                  upperNeighbour = true;
+                  connections++;
+                  //attach the nodes together
+                  //=============================
+                } else if (mazeWithNodes[y - jump][x] == 1 || mazeWithNodes[y - jump][x] == 2 || mazeWithNodes[y - jump][x] == 3) {
+                  hitObstacle = true;
+                } else {
+                  jump++;
+                }
+              } */  //===============================================================================================================
 
 }
 
