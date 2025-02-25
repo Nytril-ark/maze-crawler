@@ -6,7 +6,9 @@
 #include <array>
 #include <unordered_map>
 #include <boost/functional/hash.hpp>
-
+#include <limits>
+#include <queue>
+#include <typeinfo>
 
 //=============================================================FUNCTIONS
 
@@ -43,7 +45,6 @@ int countRows() {
 int totalRows = 0;
 int totalCols = 0;
 
-
 void setup(std::string path, int mazeNum) {
   mazePath = path + std::to_string(mazeNum) + ".txt";
   maze.close();
@@ -64,6 +65,7 @@ void printMaze() {
 int countRowObs(int row) {
   restart();
   int obstacles = 0; 
+
   for (int i = 0; i <= row; i++) {
   std::getline(maze, line);
   }
@@ -113,11 +115,8 @@ mazeInfo totalObstacles() {
 }
 
 
-
-
 typedef std::vector<std::vector<int>> Matrix;
 Matrix mazeMatrix(totalRows, std::vector<int>(totalCols, 0));
-
 
 
 Matrix mazeToNums() {
@@ -162,9 +161,29 @@ int manhattanDistance(int x1, int y1, int x2, int y2) {
     return abs(x2 - x1) + abs(y2 - y1);
 }
 
-typedef std::vector<int> Coord;
-typedef std::vector<std::vector<int>> CoordMatrix;
-typedef std::unordered_map<std::pair<int, int>, std::vector<std::pair<std::pair<int, int>, int>>, boost::hash<std::pair<int, int>>> AdjList;
+
+
+typedef std::vector<int> Coord; 
+typedef std::pair<int, int> pCoord;
+
+typedef std::unordered_map<
+  std::pair<int, int>, 
+  std::vector<std::pair<std::pair<int, int>, int>>,
+  boost::hash<std::pair<int, int>>
+> AdjList; 
+
+
+typedef std::priority_queue<
+  std::pair<int, std::pair<int, int>>,
+  std::vector<std::pair<int, std::pair<int, int>>>,
+  std::greater<>
+> priorityQueue; 
+
+
+typedef std::unordered_map<
+  std::pair<int, int>, int,
+  boost::hash<std::pair<int, int>>
+> distanceMap;   
 
 
 class Solver {
@@ -177,9 +196,9 @@ class Solver {
     }
     
   
-    CoordMatrix getNodeMatrix() {
+    Matrix getNodeMatrix() {
       Matrix currentMaze = mazeToNums();  
-      CoordMatrix nodes;
+      Matrix nodes;
       nodesCounted = true;
 
       for (int i = 0; i < totalRows; i++) {
@@ -244,11 +263,11 @@ class Solver {
     Matrix showNodes() {
       Matrix mazeWithNodes = mazeToNums();
       Solver servant;
-      CoordMatrix nodes = servant.getNodeMatrix();
+      Matrix nodes = servant.getNodeMatrix();
       int numRows = nodes.size();
       bool isNode;
       int current;
-
+      
       for (int k = 0; k < mazeWithNodes.size(); k++) {
         for (int i = 0; i < mazeWithNodes[0].size(); i++) {
           isNode = false;
@@ -271,7 +290,7 @@ class Solver {
     AdjList getAdjNodes() {
       AdjList adjNodes;
       Solver servant;
-      CoordMatrix nodes = servant.getNodeMatrix();
+      Matrix nodes = servant.getNodeMatrix();
       Matrix mazeWithNodes = servant.showNodes();
       int numRows = nodes.size();
       bool hitObstacle = false;
@@ -294,6 +313,7 @@ class Solver {
               rightNeighbour = false;
               while (!rightNeighbour && !hitObstacle && x + jump >= 0 && x + jump < totalCols) { 
                 neighbourX = x + jump;
+                neighbourY = y;
                 if (mazeWithNodes[y][neighbourX] == 9) { 
                   rightNeighbour = true;
                   connections++;
@@ -313,6 +333,7 @@ class Solver {
               lowerNeighbour = false;
               while (!lowerNeighbour && !hitObstacle && y + jump >= 0 && y + jump < totalRows) { 
                 neighbourY = y + jump;
+                neighbourX = x;
                 if (mazeWithNodes[neighbourY][x] == 9) { 
                   lowerNeighbour = true;
                   connections++;
@@ -333,15 +354,57 @@ class Solver {
         
       return adjNodes;
     }
+    
+    
+    void dijkstra() {
+      std::pair<int, pCoord> currNode;
+      distanceMap   distances;  
+      priorityQueue pq;
+      pCoord  currCoord;
+      Solver  servant;
+      int     currDist;
+      int     nProcessed = 0;
+      AdjList adjacency  = servant.getAdjNodes();
+      Coord   temp       = servant.locateChar('S');
+      Matrix  nodeMatrix = servant.getNodeMatrix();
+      pCoord  start      = {temp[0], temp[1]};
+              temp       = servant.locateChar('G');
+      pCoord  goal       = {temp[0], temp[1]};
+      
+   
+      for (const auto& node : nodeMatrix) {    // initializing distance map.
+        if (node[0] == start.first && node[1] == start.second) {
+          distances[{node[0], node[1]}] = 0;
+        } else {
+          distances[{node[0], node[1]}] = INT_MAX;
+        }
+      }
+      
+      pq.push({0, start});
+
+      while (!pq.empty()) {
+        currNode   = pq.top();
+        currDist   = currNode.first;
+        currCoord  = currNode.second;
+        pq.pop();
+        nProcessed++;
+        if (currCoord == goal) {
+          break;
+        } else {
+          for (const auto& node : adjacency[currCoord]) {
+            std::cout << "Neighbor: (" << node.first.first << ", " << node.first.second << "), Weight: " << node.second << std::endl;
+          }
+        }
+      }
+    }
 };
 
 
 
-//function to be remove later:
 
 
+//function to be removed later=============================================================================:
 void printNodeWeights(const AdjList& adjList) {
-
     for (const auto& nodeEntry : adjList) {
         const std::pair<int, int>& node = nodeEntry.first;
         const std::vector<std::pair<std::pair<int, int>, int>>& neighbors = nodeEntry.second;
@@ -367,13 +430,12 @@ int main() {
   //=============================================Block of code===========================
   printMaze();                                //displays maze, then nodes, and nodecount.
   Solver slave;
-  CoordMatrix outp = slave.getNodeMatrix();
+  Matrix outp = slave.getNodeMatrix();
   std::cout << std::endl << "Node count: " << slave.getNodeNum() << std::endl;
-  printMatrix(slave.showNodes());
-  std::cout << std::endl;
-  AdjList temp = slave.getAdjNodes();
-  std::cout << slave.getConnections() << std::endl << std::endl;
-  
+  //AdjList temp = slave.getAdjNodes();
+  //printNodeWeights(temp);
+  //std::cout << std::endl;
+  slave.dijkstra();
   std::cout << std::endl;
   //=====================================================================================
   
@@ -382,6 +444,9 @@ int main() {
   return 0;
 //NOTE: add out of bound checks to everything;
 //NOTE: try to improve and reach O(1) lookups;
+//NOTE: made a struct for int pairs;
+//NOTE: look into unordered_map hashes;
+//NOTE: consider replacing some vectors for sets;
               /*     //===========================================================================Commented due to double-counting==
               jump = 1;                                                                     //of the node connections.
               hitObstacle = false;                                                          //belongs to the getAdjNodes() method
